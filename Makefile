@@ -27,6 +27,65 @@ BUILD_DIR = build-$(BOARD)
 ######################################
 # source
 ######################################
+ifeq ($(BOARD),mks_canable2_fd)
+# --- STM32G431 MKS CANable V2.0 FD ---
+C_SOURCES = \
+Src/main.c \
+Src/pcanpro_can.c \
+Src/pcanpro_led.c \
+Src/pcanpro_timestamp.c \
+Src/usbd_conf.c \
+Src/usb_device.c \
+Src/pcanpro_usbd.c \
+Src/usbd_desc.c \
+Src/pcanpro_fd_protocol.c \
+Src/pcan_eeprom.c \
+Src/system_stm32g4xx.c \
+Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal.c \
+Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_cortex.c \
+Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_rcc.c \
+Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_rcc_ex.c \
+Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_gpio.c \
+Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_pwr.c \
+Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_pwr_ex.c \
+Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_flash.c \
+Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_flash_ex.c \
+Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_flash_ramfunc.c \
+Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_exti.c \
+Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_dma.c \
+Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_dma_ex.c \
+Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_fdcan.c \
+Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_pcd.c \
+Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_pcd_ex.c \
+Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_ll_usb.c \
+Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_tim.c \
+Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_tim_ex.c \
+Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_core.c \
+Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_ctlreq.c \
+Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_ioreq.c
+
+ASM_SOURCES = startup_stm32g431xx.s
+
+C_DEFS = \
+-DUSE_HAL_DRIVER \
+-DSTM32G431xx \
+-DMKS_CANABLE2 \
+-DPCAN_FD=1 \
+-DINCLUDE_LIN_INTERFACE=0 \
+-DNDEBUG
+
+C_INCLUDES = \
+-ISrc \
+-IDrivers/STM32G4xx_HAL_Driver/Inc \
+-IDrivers/STM32G4xx_HAL_Driver/Inc/Legacy \
+-IMiddlewares/ST/STM32_USB_Device_Library/Core/Inc \
+-IDrivers/CMSIS/Device/ST/STM32G4xx/Include \
+-IDrivers/CMSIS/Include
+
+LDSCRIPT = STM32G431CBTx_FLASH.ld
+
+else
+# --- STM32F4xx targets ---
 # C sources
 C_SOURCES =  \
 Src/main.c \
@@ -52,9 +111,9 @@ Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_dma.c \
 Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_pwr.c \
 Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_pwr_ex.c \
 Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_cortex.c \
+Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_can.c \
 Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal.c \
 Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_exti.c \
-Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_can.c \
 Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim.c \
 Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim_ex.c \
 Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_core.c \
@@ -65,6 +124,26 @@ $(PROTO)
 # ASM sources
 ASM_SOURCES =  \
 startup_stm32f407xx.s
+
+# C defines
+C_DEFS =  \
+-DUSE_HAL_DRIVER \
+-DSTM32F407xx
+
+# C includes
+C_INCLUDES =  \
+-ISrc \
+-IDrivers/STM32F4xx_HAL_Driver/Inc \
+-IDrivers/STM32F4xx_HAL_Driver/Inc/Legacy \
+-IMiddlewares/ST/STM32_USB_Device_Library/Core/Inc \
+-IMiddlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc \
+-IDrivers/CMSIS/Device/ST/STM32F4xx/Include \
+-IDrivers/CMSIS/Include \
+-IDrivers/CMSIS/Include
+
+LDSCRIPT = STM32F407VGTx_FLASH.ld
+
+endif
 
 
 #######################################
@@ -106,32 +185,20 @@ MCU = $(CPU) -mthumb $(FPU) $(FLOAT-ABI)
 # AS defines
 AS_DEFS = 
 
-# C defines
-C_DEFS =  \
--DUSE_HAL_DRIVER \
--DSTM32F407xx
-
-
 # AS includes
 AS_INCLUDES = 
-
-# C includes
-C_INCLUDES =  \
--ISrc \
--IDrivers/STM32F4xx_HAL_Driver/Inc \
--IDrivers/STM32F4xx_HAL_Driver/Inc/Legacy \
--IMiddlewares/ST/STM32_USB_Device_Library/Core/Inc \
--IMiddlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc \
--IDrivers/CMSIS/Device/ST/STM32F4xx/Include \
--IDrivers/CMSIS/Include \
--IDrivers/CMSIS/Include
 
 
 # compile gcc flags
 ASFLAGS = $(MCU) $(AS_DEFS) $(AS_INCLUDES) $(OPT) -Wall -pedantic -fdata-sections -ffunction-sections
 
+ifeq ($(BOARD),mks_canable2_fd)
+CFLAGS = $(MCU) $(C_DEFS) $(C_INCLUDES) $(OPT) -std=c11 -Wall -pedantic -fdata-sections -ffunction-sections \
+-DUSB_MODULE_ID=DEVICE_FS
+else
 CFLAGS = $(MCU) $(C_DEFS) $(C_INCLUDES) $(OPT) -std=c11 -Wall -pedantic -fdata-sections -ffunction-sections $(BOARD_FLAGS)\
 -DHSE_VALUE=$(TARGET_CRYSTAL)000000 -DUSB_MODULE_ID=DEVICE_$(TARGET_USB_ID) -D$(TARGET_VARIANT)
+endif
 
 ifeq ($(DEBUG), 1)
 CFLAGS += -g -gdwarf-2
@@ -145,9 +212,6 @@ CFLAGS += -MMD -MP -MF"$(@:%.o=%.d)"
 #######################################
 # LDFLAGS
 #######################################
-# link script
-LDSCRIPT = STM32F407VGTx_FLASH.ld
-
 # libraries
 LIBS = -lc -lm -lnosys 
 LIBDIR = 
@@ -167,6 +231,9 @@ fd:
 
 pcan_x6:
 	$(MAKE) BOARD=pcan_x6 DEBUG=0 OPT=-Os PROTO=Src/pcanpro_fd_protocol.c BOARD_FLAGS='-DPCAN_X6=1 -DINCLUDE_LIN_INTERFACE=0' elf hex bin
+
+mks_canable2_fd:
+	$(MAKE) TARGET=pcan_mks_canable2_fd BOARD=mks_canable2_fd DEBUG=0 OPT=-Os elf hex bin
 
 
 #######################################

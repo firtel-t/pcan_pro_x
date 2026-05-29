@@ -10,8 +10,15 @@
 #include "pcanpro_led.h"
 #include "pcanpro_usbd.h"
 #include "usb_device.h"
+#if defined(STM32G431xx)
+#include "pcan_eeprom.h"
+#endif
 
 #define CAN_CHANNEL_MAX     (2)
+#if defined(STM32G431xx)
+#undef CAN_CHANNEL_MAX
+#define CAN_CHANNEL_MAX     (1)
+#endif
 
 struct pcan_usbfd_fw_info
 {
@@ -74,11 +81,13 @@ pcan_device =
     .channel_nr = 0xFFFFFFFF,
     .can_clock = 80000000u
   },
+#if CAN_CHANNEL_MAX > 1
   .can[1] = 
   {
     .channel_nr = 0xFFFFFFFF,
     .can_clock = 80000000u
   },
+#endif
 };
 
 #define PCAN_USB_DATA_BUFFER_SIZE   2048
@@ -161,8 +170,15 @@ uint8_t pcan_protocol_device_setup( USBD_HandleTypeDef *pdev, USBD_SetupReqTyped
           /* windows/linux has different struct size */
           fwi.size_of = req->wLength;
           fwi.dev_id[0] = pcan_device.can[0].channel_nr;
+#if CAN_CHANNEL_MAX > 1
           fwi.dev_id[1] = pcan_device.can[1].channel_nr;
+#endif
+#if defined(STM32G431xx)
+          /* Use STM32 unique ID as serial number */
+          fwi.ser_no = HAL_GetUIDw0() ^ HAL_GetUIDw1() ^ HAL_GetUIDw2();
+#else
           fwi.ser_no = pcan_device.device_nr;
+#endif
           return USBD_CtlSendData( pdev,  (void*)&fwi, fwi.size_of );
         }
         default:
@@ -562,6 +578,9 @@ static void pcan_protocol_process_cmd( uint8_t *ptr, uint16_t size )
         if( UCAN_CMD_CHANNEL(pcmd) < CAN_CHANNEL_MAX )
         {
           pcan_device.can[UCAN_CMD_CHANNEL(pcmd)].channel_nr = pdevid->device_id;
+#if defined(STM32G431xx)
+          pcan_eeprom_write(pcan_device.device_nr, pcan_device.can[0].channel_nr);
+#endif
         }
         break;
       }
@@ -627,19 +646,32 @@ void pcan_protocol_process_data( uint8_t ep, uint8_t *ptr, uint16_t size )
 
 void pcan_protocol_init( void )
 {
+#if defined(STM32G431xx)
+  pcan_eeprom_init();
+  pcan_eeprom_read(&pcan_device.device_nr, &pcan_device.can[0].channel_nr);
+#endif
+
   pcan_can_init_ex( CAN_BUS_1, 500000 );
   pcan_can_set_filter_mask( CAN_BUS_1, 0, 0, 0, 0 );
+#if CAN_CHANNEL_MAX > 1
   pcan_can_init_ex( CAN_BUS_2, 500000 );
   pcan_can_set_filter_mask( CAN_BUS_2, 0, 0, 0, 0 );
+#endif
 
   pcan_can_set_iso_mode( CAN_BUS_1, 0 );
+#if CAN_CHANNEL_MAX > 1
   pcan_can_set_iso_mode( CAN_BUS_2, 0 );
+#endif
 
   pcan_can_install_rx_callback( CAN_BUS_1, pcan_protocol_rx_frame );
+#if CAN_CHANNEL_MAX > 1
   pcan_can_install_rx_callback( CAN_BUS_2, pcan_protocol_rx_frame );
+#endif
 
   pcan_can_install_tx_callback( CAN_BUS_1, pcan_protocol_tx_frame_cb );
+#if CAN_CHANNEL_MAX > 1
   pcan_can_install_tx_callback( CAN_BUS_2, pcan_protocol_tx_frame_cb );
+#endif
 }
 
 void pcan_protocol_poll( void )

@@ -245,7 +245,9 @@ static uint8_t device_init( USBD_HandleTypeDef *pdev, uint8_t cfgidx )
 
   USBD_LL_PrepareReceive( pdev, PCAN_USB_EP_CMDOUT, pcanpro_data.cmd_ep_buffer, sizeof( pcanpro_data.cmd_ep_buffer ) );
   USBD_LL_PrepareReceive( pdev, PCAN_USB_EP_MSGOUT_CH1, pcanpro_data.data1_ep_buffer, sizeof( pcanpro_data.data1_ep_buffer ) );
+#if ( PCAN_PRO ) || ( PCAN_PRO_FD ) || ( PCAN_X6)
   USBD_LL_PrepareReceive( pdev, PCAN_USB_EP_MSGOUT_CH2, pcanpro_data.data2_ep_buffer, sizeof( pcanpro_data.data2_ep_buffer ) );
+#endif
 
   return USBD_OK;
 }
@@ -388,11 +390,11 @@ uint8_t *device_get_device_qualifier( uint16_t *length )
 
 static uint8_t sof_handler( struct _USBD_HandleTypeDef *pdev )
 {
+#if !defined(STM32G431xx)
   uint32_t USBx_BASE = (uint32_t)(((PCD_HandleTypeDef *)pdev->pData)->Instance);
   (void)USBx_BASE;
-  
-  //vn_data_handler_sof( (USBx_DEVICE->DSTS>>8u)&0x3FFFu );
-  
+#endif
+  (void)pdev;
   return USBD_OK;
 }
 

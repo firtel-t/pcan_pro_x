@@ -1,6 +1,50 @@
 #include <assert.h>
+#if defined(STM32G431xx)
+#include <stm32g4xx_hal.h>
+#else
 #include <stm32f4xx_hal.h>
+#endif
 #include "pcanpro_timestamp.h"
+
+#if defined(STM32G431xx)
+/* G431: APB1 timer clock = 160MHz, TIM3 only (no TIM9 on G431) */
+/* Use TIM3 as 32-bit counter with prescaler for 1us tick */
+/* PSC = 160-1 => 1MHz => 1us per tick */
+void pcan_timestamp_init( void )
+{
+  __HAL_RCC_TIM3_CLK_ENABLE();
+
+  TIM3->PSC = (160-1); /* 160MHz / 160 = 1MHz => 1us tick */
+  TIM3->CR1 &= (uint16_t)(~TIM_CR1_CKD);
+  TIM3->CR1 |= TIM_CLOCKDIVISION_DIV1;
+  TIM3->ARR = 0xFFFF;
+  TIM3->CR1 |= TIM_CR1_CEN;
+
+  HAL_IncTick();
+}
+
+uint32_t pcan_timestamp_millis( void )
+{
+  return HAL_GetTick();
+}
+
+uint32_t pcan_timestamp_us( void )
+{
+  /* 16-bit timer, combine with millis for 32-bit timestamp */
+  uint32_t ms = HAL_GetTick();
+  uint16_t cnt = (uint16_t)TIM3->CNT;
+  uint32_t ms2 = HAL_GetTick();
+
+  if( ms != ms2 )
+  {
+    cnt = (uint16_t)TIM3->CNT;
+    ms = ms2;
+  }
+
+  return (ms * 1000u) + (cnt % 1000u);
+}
+
+#else /* STM32F4xx */
 
 #define TIM_BUS_FREQ (48000000)
 
@@ -56,3 +100,5 @@ uint32_t pcan_timestamp_us( void )
 
   return (tim_hi<<16u)|tim_lo;
 }
+
+#endif /* STM32G431xx */

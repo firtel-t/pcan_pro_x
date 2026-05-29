@@ -39,14 +39,20 @@ void pcan_usb_device_init(void)
 
 void pcan_usb_device_poll( void )
 {
+#if !defined(STM32G431xx)
   HAL_PCD_IRQHandler( &hpcd_usb );
+#endif
 }
 
 uint16_t pcan_usb_frame_number( void )
 {
+#if defined(STM32G431xx)
+  return (uint16_t)(USB->FNR & USB_FNR_FN);
+#else
   uint32_t USBx_BASE = (uint32_t)(((PCD_HandleTypeDef *)h_usb_device.pData)->Instance);
   
   return (USBx_DEVICE->DSTS>>8u)&0x3FFFu;
+#endif
 }
 
 int pcan_flush_ep( uint8_t ep )

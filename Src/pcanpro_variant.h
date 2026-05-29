@@ -37,6 +37,21 @@
 
 #elif (defined EMPTY_STUB)
 #define IO_HW_INIT()
+
+#elif (defined MKS_CANABLE2)
+/* MKS CANable V2.0 - STM32G431 with FDCAN */
+#define CAN1_RX       B, 8, MODE_AF_PP, PULLUP, SPEED_FREQ_VERY_HIGH, AF9_FDCAN1
+#define CAN1_TX       B, 9, MODE_AF_PP, NOPULL, SPEED_FREQ_VERY_HIGH, AF9_FDCAN1
+
+/* LEDs active low */
+#define IO_LED_TX0    A, 15, MODE_OUTPUT_PP, NOPULL, SPEED_FREQ_MEDIUM, NOAF
+#define IO_LED_RX0    A, 0, MODE_OUTPUT_PP, NOPULL, SPEED_FREQ_MEDIUM, NOAF
+
+#define IO_LED_HI     PIN_LOW
+#define IO_LED_LOW    PIN_HI
+
+#define IO_HW_INIT()
+
 #else
 #error Invalid hardware
 #endif

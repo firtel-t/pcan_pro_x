@@ -1,5 +1,9 @@
 #pragma once
+#if defined(STM32G431xx)
+#include <stm32g4xx_hal.h>
+#else
 #include <stm32f4xx.h>
+#endif
 
 
 /* pin mode */
@@ -86,6 +90,26 @@ do{\
 #define CONCATE(MACRO, NUMBER) CONCATE_(MACRO, NUMBER)
 #define VA_MACRO(MACRO, ...) CONCATE(MACRO, NUM_ARGS(__VA_ARGS__))(__VA_ARGS__)
 
+#if defined(STM32G431xx)
+#define PORT_ENABLE_CLOCK(...)\
+do{\
+  __IO uint32_t tmp;\
+  VA_MACRO(PORT_ENABLE_CLOCK, __VA_ARGS__);\
+  tmp = RCC->AHB2ENR;\
+  (void)tmp;\
+}while(0)
+
+#define PORT_ENABLE_CLOCK1(_1)                                  RCC->AHB2ENR |= RCC_AHB2ENR_GPIO##_1##EN
+#define PORT_ENABLE_CLOCK2(_1, _2)                              RCC->AHB2ENR |= RCC_AHB2ENR_GPIO##_1##EN |\
+                                                                                RCC_AHB2ENR_GPIO##_2##EN
+#define PORT_ENABLE_CLOCK3(_1, _2, _3)                          RCC->AHB2ENR |= RCC_AHB2ENR_GPIO##_1##EN |\
+                                                                                RCC_AHB2ENR_GPIO##_2##EN |\
+                                                                                RCC_AHB2ENR_GPIO##_3##EN
+#define PORT_ENABLE_CLOCK4(_1, _2, _3, _4)                      RCC->AHB2ENR |= RCC_AHB2ENR_GPIO##_1##EN |\
+                                                                                RCC_AHB2ENR_GPIO##_2##EN |\
+                                                                                RCC_AHB2ENR_GPIO##_3##EN |\
+                                                                                RCC_AHB2ENR_GPIO##_4##EN
+#else
 #define PORT_ENABLE_CLOCK(...)\
 do{\
   __IO uint32_t tmp;\
@@ -135,5 +159,6 @@ do{\
                                                                                 RCC_AHB1ENR_GPIO##_6##EN |\
                                                                                 RCC_AHB1ENR_GPIO##_7##EN |\
                                                                                 RCC_AHB1ENR_GPIO##_8##EN
+#endif /* STM32G431xx */
 
 

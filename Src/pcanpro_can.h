@@ -8,7 +8,11 @@ enum
   CAN_BUS_TOTAL
 };
 
+#if defined(STM32G431xx)
+#define CAN_PAYLOAD_MAX_SIZE (64u)
+#else
 #define CAN_PAYLOAD_MAX_SIZE (8u)
+#endif
 struct t_can_msg
 {
   uint32_t timestamp;
