@@ -144,7 +144,7 @@ int pcan_can_init_ex( int bus, uint32_t bitrate )
   /* Accept all frames */
   HAL_FDCAN_ConfigGlobalFilter(&g_hfdcan,
     FDCAN_ACCEPT_IN_RX_FIFO0, FDCAN_ACCEPT_IN_RX_FIFO0,
-    FDCAN_REJECT_REMOTE, FDCAN_REJECT_REMOTE);
+    FDCAN_FILTER_REMOTE, FDCAN_FILTER_REMOTE);
 
   FDCAN_FilterTypeDef filter = { 0 };
   filter.IdType = FDCAN_STANDARD_ID;

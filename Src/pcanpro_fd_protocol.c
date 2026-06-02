@@ -434,6 +434,11 @@ static void pcan_protocol_process_cmd( uint8_t *ptr, uint16_t size )
           /* update ISO mode only on inactive bus */
           uint8_t bus_iso_mode = ( pcan_device.can[UCAN_CMD_CHANNEL(pcmd)].opt_mask & UCAN_OPTION_ISO_MODE ) != 0;
           pcan_can_set_iso_mode( UCAN_CMD_CHANNEL(pcmd), bus_iso_mode );
+#if defined(STM32G431xx)
+          /* LEDs back ON when bus goes inactive */
+          pcan_led_set_mode( LED_CH0_TX, LED_MODE_ON, 0 );
+          pcan_led_set_mode( LED_CH0_RX, LED_MODE_ON, 0 );
+#endif
         }
       }
         break;
@@ -449,6 +454,11 @@ static void pcan_protocol_process_cmd( uint8_t *ptr, uint16_t size )
           pcan_device.can[UCAN_CMD_CHANNEL(pcmd)].bus_active = 1;
           pcan_can_set_bus_active( UCAN_CMD_CHANNEL(pcmd) , 1 );
           pcan_protocol_send_status( UCAN_CMD_CHANNEL(pcmd), 0 );
+#if defined(STM32G431xx)
+          /* LEDs off when bus goes active */
+          pcan_led_set_mode( LED_CH0_TX, LED_MODE_OFF, 0 );
+          pcan_led_set_mode( LED_CH0_RX, LED_MODE_OFF, 0 );
+#endif
         }
       }
         break;
@@ -461,6 +471,11 @@ static void pcan_protocol_process_cmd( uint8_t *ptr, uint16_t size )
           pcan_device.can[UCAN_CMD_CHANNEL(pcmd)].silient = 1;
           pcan_device.can[UCAN_CMD_CHANNEL(pcmd)].bus_active = 1;
           pcan_protocol_send_status( UCAN_CMD_CHANNEL(pcmd), 0 );
+#if defined(STM32G431xx)
+          /* LEDs off when bus goes active */
+          pcan_led_set_mode( LED_CH0_TX, LED_MODE_OFF, 0 );
+          pcan_led_set_mode( LED_CH0_RX, LED_MODE_OFF, 0 );
+#endif
         }
       }
         break;
