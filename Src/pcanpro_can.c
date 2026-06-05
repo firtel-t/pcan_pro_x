@@ -482,6 +482,60 @@ void pcan_can_poll( void )
 void FDCAN1_IT0_IRQHandler(void) { HAL_FDCAN_IRQHandler(&g_hfdcan); }
 void FDCAN1_IT1_IRQHandler(void) { HAL_FDCAN_IRQHandler(&g_hfdcan); }
 
+/**
+ * Bus-Off recovery callback.
+ * FDCAN (unlike bxCAN) does not have automatic bus-off recovery.
+ * When bus-off occurs the hardware sets CCCR.INIT=1 and stays there.
+ * We must manually re-start the peripheral to recover.
+ */
+void HAL_FDCAN_ErrorStatusCallback(FDCAN_HandleTypeDef *hfdcan, uint32_t ErrorStatusITs)
+{
+  if( ErrorStatusITs & FDCAN_IR_BO )
+  {
+    /* Bus-Off detected: stop, re-init, and restart FDCAN */
+    HAL_FDCAN_Stop(hfdcan);
+    HAL_FDCAN_Init(hfdcan);
+
+    /* Re-apply global accept-all filters */
+    HAL_FDCAN_ConfigGlobalFilter(hfdcan,
+      FDCAN_ACCEPT_IN_RX_FIFO0, FDCAN_ACCEPT_IN_RX_FIFO0,
+      FDCAN_FILTER_REMOTE, FDCAN_FILTER_REMOTE);
+
+    FDCAN_FilterTypeDef filter = { 0 };
+    filter.IdType = FDCAN_STANDARD_ID;
+    filter.FilterIndex = 0;
+    filter.FilterType = FDCAN_FILTER_MASK;
+    filter.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
+    filter.FilterID1 = 0x000;
+    filter.FilterID2 = 0x000;
+    HAL_FDCAN_ConfigFilter(hfdcan, &filter);
+
+    filter.IdType = FDCAN_EXTENDED_ID;
+    filter.FilterIndex = 0;
+    filter.FilterID1 = 0x00000000;
+    filter.FilterID2 = 0x00000000;
+    HAL_FDCAN_ConfigFilter(hfdcan, &filter);
+
+    /* Re-activate notifications */
+    HAL_FDCAN_ActivateNotification(hfdcan,
+      FDCAN_IT_RX_FIFO0_NEW_MESSAGE | FDCAN_IT_RX_FIFO0_FULL |
+      FDCAN_IT_TX_COMPLETE | FDCAN_IT_TX_FIFO_EMPTY |
+      FDCAN_IT_BUS_OFF | FDCAN_IT_ERROR_WARNING |
+      FDCAN_IT_ERROR_PASSIVE |
+      FDCAN_IT_ARB_PROTOCOL_ERROR | FDCAN_IT_DATA_PROTOCOL_ERROR,
+      0xFFFFFFFF);
+
+    /* Restart the bus */
+    HAL_FDCAN_Start(hfdcan);
+
+    /* Notify upper layer if error handler is registered */
+    if( can_dev.err_handler )
+    {
+      can_dev.err_handler( CAN_BUS_1, FDCAN_IR_BO );
+    }
+  }
+}
+
 #else /* STM32F4xx bxCAN */
 
 static CAN_HandleTypeDef hcan[CAN_BUS_TOTAL] = 
