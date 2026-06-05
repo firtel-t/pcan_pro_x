@@ -309,6 +309,8 @@ int pcan_protocol_tx_frame_cb( uint8_t channel, struct t_can_msg *pmsg )
   return 0;
 }
 
+static int pcan_protocol_send_status( uint8_t channel, uint8_t status );
+
 int pcan_protocol_tx_frame( struct ucan_tx_msg *pmsg )
 {
   static const uint8_t pcan_fd_dlc2len[] = 
@@ -363,8 +365,8 @@ int pcan_protocol_tx_frame( struct ucan_tx_msg *pmsg )
 
   if( pcan_can_write( channel, &msg ) < 0 )
   {
-    /* TODO: tx queue overflow ? */
-    ;
+    /* TX queue full - send status notification (QXmtFull) */
+    pcan_protocol_send_status( channel, 0x01 ); /* bit 4 = RB (queue full indicator) */
   }
   return 0;
 }
@@ -659,6 +661,36 @@ void pcan_protocol_process_data( uint8_t ep, uint8_t *ptr, uint16_t size )
   }
 }
 
+static void pcan_protocol_err_handler( int bus, uint32_t err_flags )
+{
+  uint8_t channel = (uint8_t)bus;
+
+  /* Overrun notification */
+  if( err_flags & 0x80000000u )
+  {
+    struct ucan_usb_ovr_msg *pov = pcan_data_alloc_buffer( UCAN_USB_MSG_OVERRUN, sizeof(struct ucan_usb_ovr_msg) );
+    if( pov )
+    {
+      pov->channel = channel;
+      memset( pov->unused, 0, sizeof(pov->unused) );
+    }
+    return;
+  }
+
+  /* CAN error state notification */
+  uint8_t status = 0;
+#if defined(STM32G431xx)
+  if( err_flags & FDCAN_IR_BO ) status |= 0x08; /* Bus Off */
+  if( err_flags & FDCAN_IR_EW ) status |= 0x04; /* Warning */
+  if( err_flags & FDCAN_IR_EP ) status |= 0x02; /* Passive */
+#else
+  (void)err_flags;
+#endif
+
+  /* Always send status (including 0 = OK / Error Active) */
+  pcan_protocol_send_status( channel, status );
+}
+
 void pcan_protocol_init( void )
 {
 #if defined(STM32G431xx)
@@ -686,6 +718,11 @@ void pcan_protocol_init( void )
   pcan_can_install_tx_callback( CAN_BUS_1, pcan_protocol_tx_frame_cb );
 #if CAN_CHANNEL_MAX > 1
   pcan_can_install_tx_callback( CAN_BUS_2, pcan_protocol_tx_frame_cb );
+#endif
+
+  pcan_can_install_err_callback( CAN_BUS_1, pcan_protocol_err_handler );
+#if CAN_CHANNEL_MAX > 1
+  pcan_can_install_err_callback( CAN_BUS_2, pcan_protocol_err_handler );
 #endif
 }
 

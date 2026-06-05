@@ -29,6 +29,7 @@ static struct t_can_dev
   int (*rx_isr)( uint8_t, struct t_can_msg* );
   int (*tx_isr)( uint8_t, struct t_can_msg* );
   void (*err_handler)( int bus, uint32_t esr );
+  uint8_t bus_active;
 }
 can_dev = { 0 };
 
@@ -207,9 +208,43 @@ void pcan_can_set_bus_active( int bus, uint16_t mode )
 {
   (void)bus;
   if(mode)
+  {
+    /* Re-init in case we're recovering from bus-off */
+    HAL_FDCAN_Init(&g_hfdcan);
+    HAL_FDCAN_ConfigGlobalFilter(&g_hfdcan,
+      FDCAN_ACCEPT_IN_RX_FIFO0, FDCAN_ACCEPT_IN_RX_FIFO0,
+      FDCAN_FILTER_REMOTE, FDCAN_FILTER_REMOTE);
+
+    FDCAN_FilterTypeDef filter = { 0 };
+    filter.IdType = FDCAN_STANDARD_ID;
+    filter.FilterIndex = 0;
+    filter.FilterType = FDCAN_FILTER_MASK;
+    filter.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
+    filter.FilterID1 = 0x000;
+    filter.FilterID2 = 0x000;
+    HAL_FDCAN_ConfigFilter(&g_hfdcan, &filter);
+    filter.IdType = FDCAN_EXTENDED_ID;
+    filter.FilterIndex = 0;
+    filter.FilterID1 = 0x00000000;
+    filter.FilterID2 = 0x00000000;
+    HAL_FDCAN_ConfigFilter(&g_hfdcan, &filter);
+
+    HAL_FDCAN_ActivateNotification(&g_hfdcan,
+      FDCAN_IT_RX_FIFO0_NEW_MESSAGE | FDCAN_IT_RX_FIFO0_FULL |
+      FDCAN_IT_TX_COMPLETE | FDCAN_IT_TX_FIFO_EMPTY |
+      FDCAN_IT_BUS_OFF | FDCAN_IT_ERROR_WARNING |
+      FDCAN_IT_ERROR_PASSIVE |
+      FDCAN_IT_ARB_PROTOCOL_ERROR | FDCAN_IT_DATA_PROTOCOL_ERROR,
+      0xFFFFFFFF);
+
     HAL_FDCAN_Start(&g_hfdcan);
+    can_dev.bus_active = 1;
+  }
   else
+  {
     HAL_FDCAN_Stop(&g_hfdcan);
+    can_dev.bus_active = 0;
+  }
 }
 
 void pcan_can_set_bitrate( int bus, uint32_t bitrate, int is_data_bitrate )
@@ -483,13 +518,28 @@ void FDCAN1_IT0_IRQHandler(void) { HAL_FDCAN_IRQHandler(&g_hfdcan); }
 void FDCAN1_IT1_IRQHandler(void) { HAL_FDCAN_IRQHandler(&g_hfdcan); }
 
 /**
- * Bus-Off recovery callback.
+ * Bus-Off recovery and error status notification.
  * FDCAN (unlike bxCAN) does not have automatic bus-off recovery.
  * When bus-off occurs the hardware sets CCCR.INIT=1 and stays there.
  * We must manually re-start the peripheral to recover.
  */
 void HAL_FDCAN_ErrorStatusCallback(FDCAN_HandleTypeDef *hfdcan, uint32_t ErrorStatusITs)
 {
+  uint32_t err_status = 0;
+
+  if( ErrorStatusITs & FDCAN_IR_BO )
+    err_status |= FDCAN_IR_BO;
+  if( ErrorStatusITs & FDCAN_IR_EW )
+    err_status |= FDCAN_IR_EW;
+  if( ErrorStatusITs & FDCAN_IR_EP )
+    err_status |= FDCAN_IR_EP;
+
+  /* Notify upper layer of any error state change */
+  if( can_dev.err_handler && err_status )
+  {
+    can_dev.err_handler( CAN_BUS_1, err_status );
+  }
+
   if( ErrorStatusITs & FDCAN_IR_BO )
   {
     /* Bus-Off detected: stop, re-init, and restart FDCAN */
@@ -527,12 +577,19 @@ void HAL_FDCAN_ErrorStatusCallback(FDCAN_HandleTypeDef *hfdcan, uint32_t ErrorSt
 
     /* Restart the bus */
     HAL_FDCAN_Start(hfdcan);
+  }
+}
 
-    /* Notify upper layer if error handler is registered */
-    if( can_dev.err_handler )
-    {
-      can_dev.err_handler( CAN_BUS_1, FDCAN_IR_BO );
-    }
+/* RX FIFO full callback - overrun detection */
+void HAL_FDCAN_RxFifo0FullCallback(FDCAN_HandleTypeDef *hfdcan)
+{
+  (void)hfdcan;
+  ++can_dev.rx_ovfs;
+
+  /* Notify upper layer of overrun */
+  if( can_dev.err_handler )
+  {
+    can_dev.err_handler( CAN_BUS_1, 0x80000000u ); /* custom flag for overrun */
   }
 }
 
